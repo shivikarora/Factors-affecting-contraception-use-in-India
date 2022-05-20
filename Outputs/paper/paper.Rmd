@@ -1,0 +1,441 @@
+---
+title: "Factors Influencing Contraception Use and Population Growth in India"
+author: 
+  - Aleksander Babic
+  - Shenghui Qiao
+  - Shivik Arora
+thanks: "Code and data are available at: https://github.com/qiaoshe1/STA304-Paper-4.git"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+abstract: "In this paper we analyze the use of contraceptives by married women in India. In underdeveloped and developing countries there is often a huge gap in infrastructure between the metropolitan cities and the rural areas. It is often seen that people living in rural areas have a higher number of children per household. Is this due to a lack of education and traditional views towards contraception use? What other factors affect use of contraception? Analyzing a dataset picked from the DHS National Family Health Survey in India 1992-1993, we observe that literacy rates and residence areas do have a significant impact on the use of contraception."
+output:
+  bookdown::pdf_document2
+toc: FALSE
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(knitr)
+library(reshape2)
+library(janitor)
+library(kableExtra)
+```
+
+# Introduction
+
+India has a population of 1.38 billion people. This equates to 18% of the world population. Overpopulation is a real looming situation for a poor developing country like India. Moreover, with death rates declining all over the world due to technological advancements in the medical and agricultural world, people have longer life expectancy. The total populations of countries are growing and while technological advancements have aided our ability to sustain this increase to some extent, it is not enough. Poorer families have more children to help with income streams. Lack of education in these families and poor contraception use other sources of the problem. Overpopulation can have an array of negative effects in a country from spread of malnutrition to rise in unemployment, high cost of living, and faster climate change. Delving into the mechanism of how these issues arise and aggravate is beyond the scope of this paper. To curb overpopulation, there are simple and highly effective solutions like education on family planning, sex education, and importantly promoting awareness about contraceptive measures.
+
+In this paper, we explore the relationship between use of contraception and people’s background characteristics like education, religion, area of residence, and number of children. We would expect that those with higher education would be more aware and progressive in their thinking with respect to use of contraception. In our data, we do find this to be the case. We should be wary, however, of the fact that educated people are more likely to openly talk about subjects like sex and contraception. This could introduce response bias in our data. We also observed that Muslim women had the lowest use of contraception even though it is not the case that Islam bans it’s use. This could potentially be attributed to the fact that in India, a higher proportion of Muslims live the rural areas. There was also a clear trend of higher use of contraception in the urban areas as compared to the rural areas. Another observation which came through was that women with no children were far more likely to not use contraception than women who have children. This seems intuitively appealing. Women with less children are younger and less thoughtful in their relationships. We will explore each of these points in depth through this paper. 
+
+
+# Data
+
+```{r readdata, include = FALSE}
+cleaned_data <- read.csv("cleaned_data.csv")
+
+cleaned_data <- cleaned_data %>%
+  select(-c(X)) 
+
+cleaned_data$Other.methods[which(cleaned_data$Other.methods == "<0.05")] <- "0.05"
+cleaned_data$Injection[which(cleaned_data$Injection == "<0.05")] <- "0.05"
+cleaned_data$Other.methods <- as.numeric(cleaned_data$Other.methods)
+cleaned_data$Injection <- as.numeric(cleaned_data$Injection)
+```
+
+The dataset we chose for analysis in this project is from the National Family Health Survey 1992-1993 conducted by the International Institute for Population Sciences, Bombay, India (@citeIIPS). The IIPS published this report which included many topics under population sciences – nuptiality, fertility, family planning, morbidity and mortality, maternal and child health, and knowledge on AIDS. Our data is from Chapter 6 – Family Planning. We wanted to analyze use of contraception methods by married women according to background characteristics. 
+
+We had 5 categories of background characteristics available to us – Residence (rural v/s urban), Education, Religion, Caste/tribe, and number and sex of living children. We decided to omit Caste/tribe as it did not seem very informative and categorized women from all backgrounds other than scheduled cast or tribe as ‘Other’. This would likely not prove very informative. We decided to keep the other background factors. Education level would provide us with intuition on how literacy affects use of contraceptive methods. We would expect this to be highly correlated with residence as urban areas would have higher levels of literacy compared to rural areas. Religion would give us an idea of how contraception is looked at by followers of different religions. The Quran does not prohibit the use of contraception. Nor does Hinduism ban any form of birth control. The Catholic church is the only church which views contraception as against their religion. We also decided to include number and sex of children. This data is form 1992-1993. Female foeticide was a prevalent problem in India. A son being born in the family was seen as optimal as he was assumed to have higher chance of being a provider and earner in the future and has been identified as a cause for the issue of female foeticide. With this categorical variable we wanted to see whether having a son influences rate of use of contraception. 
+
+
+```{r fig.cap = "\\label{fig:background}Number of women across different background characteristics", echo=FALSE, warning=FALSE, message=FALSE}
+cleaned_data %>% 
+  mutate(Background.characteristic = factor(Background.characteristic, levels = Background.characteristic)) %>%
+  ggplot(aes(x = Background.characteristic, y = Number.of.women, fill = Category)) + 
+  geom_bar(stat = "identity", position ="dodge", colour = "black") + 
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 40, hjust = 1, size = 7)) +
+  labs(x = "Background characteristics", 
+       y = "Number of women",
+       fill = "Category")
+
+```
+
+As we can see from table \@ref(tab:overview) and figure \@ref(fig:methods), we had percentage statistics for use of contraception by different types – modern and traditional. Modern methods were further divided into two categories – temporary and permanent. Modern temporary methods included being of the pill, intrauterine device (IUD), and use of condoms. Permanent modern methods included male/female sterilization. Traditional methods of contraception included periodic abstinence and withdrawal.  
+
+```{r overview, echo=FALSE, warning=FALSE, message=FALSE}
+overview <- cleaned_data %>%
+  summarise("Using conceptive method" = mean(Any.method),
+            "Not using any conceptive Method" = mean(Not.using.any.method),
+            "Any modern method" = mean(Any.modern.method),
+            "Any traditional method" = mean(Any.trad..method),
+            "Total Number of women" = 84678) %>% 
+  format(digits = 4)
+
+row.names(overview) <- "percent"
+
+knitr::kable(overview, caption = "Overview of conceptive methods used by married women in India (in mean percentiles)", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("striped", "scale_down", "HOLD_position"))
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+methods <- cleaned_data %>% 
+  summarise("Pill" = mean(Pill),
+            "IUD" = mean(IUD),
+            "Injection" = "<0.05",
+            "Condom" = mean(Condom),
+            "Female sterilization" = mean(Female.sterilization),
+            "Male sterilization" = mean(Male.sterilization),
+            "Periodic abstinence" = mean(Periodic.abstinence),
+            "Withdrawal" = mean(Withdrawal),
+            "Other methods" = mean(Other.methods),
+            "Total number of women" = 84678) %>% 
+  format(digits = 4)
+
+row.names(methods) <- "percent"
+
+methods <- methods %>% 
+  select(-c("Total number of women")) %>% 
+  t() %>% 
+  as.data.frame()
+
+methods$name <- rownames(methods)
+
+methods$percent[which(methods$percent == "<0.05")] <- "0.05"
+methods$percent <- as.numeric(methods$percent)
+```
+
+```{r fig.cap = "\\label{fig:methods}Uses of different conceptive methods", echo=FALSE, warning=FALSE, message=FALSE}
+methods %>% 
+  ggplot(aes(x = name, y = percent, label = percent)) +
+  geom_bar(stat = "identity", position ="dodge", fill = "light blue") + 
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = -40, hjust = 0.1)) +
+  geom_text(size = 3, position = position_nudge(), colour = "dark blue")+
+  labs(x = "Contraceptive Methods", 
+       y = "Percent")
+
+```
+
+Throughout the report, We used R to conduct our analysis (@citeR). R packages `tidyverse` [@citetidyverse], `knitr` [@citeknitr], `reshape2` [@citereshape2], `janitor`[@citejanitor], and `kableExtra` [@citekableExtra] are used for data cleaning, analysis and discussion.
+
+# Survey Methodology and Overview Analysis 
+
+All the women that participated in the survey were asked to name all contraceptive methods they have heard about, without any prompting.  The woman’s knowledge of contraception was measured at three levels; methods she thought of on her own, methods she knows when asked specifically about them, and methods she has not heard of.  They were also asked if they knew how a person could get the method they listed.  
+
+This report presents the findings of a research task whose main objective was to analyze the use of contraceptives by married women in India.  In New Delhi 1991, the Project to Strengthen the Survey Research Capabilities of the Population Research Centres in India was launched by the Ministry of Health and Family Welfare.  The primary objective of this project was to provide state and national level estimates of fertility, infant and child mortality, and the utilization of services provided for mothers and children.  The National Family Health Survey is an important component of this project and carried out a survey which covered 24 states and the National Capital Territory of Delhi which comprises 99 percent of the total population in India.  This was the largest population and health survey carried out in India at the time.
+
+From April 1992 to September 1993, carried out in a state-by-state basis, a nationally representative sample of 89,777 women that have ever been married between the ages of 13-49 and 88,652 households which covered 500,492 residents were surveyed, using uniform questionnaires, sample designs, and field procedures.  Due to the large population being surveyed, the data collection under the NFHS was carried out in three phases in 1992 and 1993.  Andhra Pradesh, Himachal Pradesh, Madhya Pradesh, Tamil Nadu and West Bengal were covered during the first phase. Assam, Goa, Haryana, Karnataka, Kerala, Maharashtra, Rajasthan and Uttar Pradesh were covered during the second phase. Arunachal Pradesh, Bihar, Gujarat, the Jammu Region of Jammu and Kashmir, Manipur, Meghalaya, Mizoram, Nagaland, Orissa, Punjab, Tripura and the National Capital Territory of Delhi were covered during the third phase.
+
+Each state that participated in the survey adopted a uniform sample design which included a systematic, stratified sample of households, with two stages in rural areas and three stages in urban areas.  The target sample size for each state was established based on the size of the state, the time and resources available for the survey and the need for separate estimates for urban and rural areas.  3000 interviews with eligible women were carried out in states that had a population of less than 25 million people, 4000 interviews for states with over 25 million people, 8000 interviews for the largest state, Uttar Pradesh, and 1000 interviews for the 6 smallest states.
+
+Three types of questionnaires were used by the NFHS; the Household Questionnaire, the Woman’s Questionnaire, and the Village Questionnaire.  The survey’s content and design were mostly based on the DHS Model B Questionnaire, which is intended for use in countries with low contraceptive prevalence.  Some states were given state-specific questions which were prepared based on issues of importance in each state, however there were a standard set of questions that were asked in each survey.  The topics covered by the state-specific questions are dowry in Bihar, age at marriage in Rajasthan, sex preference for children in Uttar Pradesh, international migration in Kerala, Green Cards in Madhya Pradesh, benefits received from antipoverty programs in Karnataka, and sex preselection and international migration in Punjab.  All the surveys had fixed response categories, and they were available in both the state language and English.  The full content of the questionnaires was translated into the state language before being independently translated back into English.
+
+The Household Questionnaire was used to obtain a list of residents from each sample household, and visitors who had stayed over the night before the interview.  The information that was collected includes age, sex, marital status, education, occupation and health status.  The main objective for this questionnaire was to identify women that are eligible to respond to the Woman’s Questionnaire.
+
+The Woman’s Questionnaire consisted of 7 sections and was used to collect information from eligible women.  The first section was on the respondent’s background, and contained questions about age, marital status, age at marriage, and education.  The second section was about reproduction.  Information was collected about the total number of sons and daughters a woman had in her life, stillbirths and abortions, complete birth history of children, and current pregnancy and menstruation status.  The next section was about contraception, where information was collected on the knowledge and use of various family planning methods.  The fourth section pertained to the health of children.  Questions were asked related to antenatal care, breastfeeding, vaccinations and recent illnesses of young children.  Another section was concerned with gathering information on the fertility preferences such as the desire for additional children, ideal family size and sex composition of children.  The sixth section was concerned with question relating to the age, education, and work status of the husband as well as the work status of the woman.  The last section in the Woman’s Questionnaire was about the nutritional status of children including the height and weight of all children under the age of four.
+
+Lastly, the village Questionnaire was used to collect information on all villages covered in the survey.  Information obtained in this questionnaire included the status of various amenities in the city such as electricity, water, transportation, and educational and health facilities.
+
+
+# Results
+
+In urban areas 51 percent of women use any contraceptive method while in rural areas that number is only 37 percent.  This represents a 38 percent higher contraceptive prevalence in urban communities compared to rural.  Modern contraceptive methods are female and male sterilizations, the pill, the IUD, injections, and the condom.  In India, only 45 percent of women living in urban areas use any modern contraceptive method while only 33 percent use any modern method in rural areas.  Urban use is higher for every single method of family planning, except male and female sterilization.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+residence <- cleaned_data %>% 
+  filter(Category == "Residence") %>% 
+  select(-c(Category, Number.of.women, Total.percent)) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  row_to_names(row_number = 1)
+
+residence$methods <- rownames(residence)
+residence <- melt(residence, id.vars=c("methods"))
+
+residence$value[which(residence$value == "<0.05")] <- "0.05"
+residence$value <- as.numeric(residence$value)
+```
+
+```{r fig.cap = "\\label{fig:redidence1}Use of contraceptive methods in urban and rural area", fig.height = 4, echo=FALSE, warning=FALSE, message=FALSE}
+residence %>% 
+  ggplot(aes(x = methods, y = value, group = variable, fill = variable, label = value)) +
+  geom_bar(stat = "identity", position ="dodge") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = -40, hjust = 0.1)) +
+  geom_text(size = 3, position = position_nudge(y = 1)) +
+  labs(x = "Contraceptive Methods", 
+       y = "Percent",
+       fill = "Residence")
+```
+
+Based off this survey, we can conclude that contraceptive use is unbalanced between urban and rural sectors.  A reason for this could be that there are more logistic advantages for contraceptive supply and more clinical facilities for methods offered in urban areas, as well as easier educational approaches (@citeRoss). 
+
+Almost a quarter of currently married women do not know about any modern temporary contraceptive methods including 29 percent of women in rural environments(@citeIIPS).  Of the 43 percent of women that use contraceptives in India, 61 percent have undergone female sterilization, which is a surgical procedure in which the fallopian tubes are permanently blocked.  Despite a widespread knowledge of sterilization, knowledge of the three officially sponsored temporary methods, the pill, the IUD, and the condom, is much less prevalent.  All other contraceptive methods account for at most 8 percent of total methods used.  Only 8 percent of women that use contraceptives use condoms, which means less than 4 percent of the total population.  This indicates that method availability is distinct from method use.
+
+The survey indicates that there is a positive relationship between a woman’s education and use of contraceptive methods.  It is evident that the less education a woman has, the less likely she is to implement a contraceptive method into her life.  66.1 percent of illiterate women do not use any contraceptive methods while 45.3 percent of women who have received at least a high school level education do not use any family planning methods.  However, the more educated a woman is, the less likely she is to undergo female sterilization, with only 22 percent of high school educated women having had the surgery compared to 35 percent of illiterate women.  It is evident that too many women in India are not being educated on contraceptive options that would reduce unintended pregnancies and rates of sexually transmitted infections.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+education <- cleaned_data %>% 
+  filter(Category == "Education") %>% 
+  select(-c(Category, Number.of.women, Total.percent)) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  row_to_names(row_number = 1)
+
+education$methods <- rownames(education)
+education <- melt(education, id.vars=c("methods"))
+
+education$value[which(education$value == "<0.05")] <- "0.05"
+education$value <- as.numeric(education$value)
+```
+
+```{r fig.cap = "\\label{fig:education}Use of contraceptive methods across different education levels", fig.height = 5, echo=FALSE, warning=FALSE, message=FALSE}
+education %>% 
+  ggplot(aes(x = methods, y = value, group = variable, colour = variable)) +
+  geom_point() +
+  geom_line() +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = -40, hjust = 0.1)) +
+  labs(x = "Contraceptive Methods", 
+       y = "Percent",
+       colour = "Education")
+```
+
+Religious differences in the use of contraception are even more substantial than the differences by education.  Jain women in India have the highest usage rate of family planning methods at 63 percent.  Muslim women, on the other hand, have the lowest contraceptive prevalence at 28 percent (@citeIIPS).  Among Sikhs, that rate is 58 percent, 50 percent with Buddhists, and 48 percent among Christians.  As well, 22 percent of Jains and 17 percent of Sikhs use a modern temporary method, compared to just 4 to 7 percent among other religions.  Female sterilization is prevalent at a similar rate amongst the religious groups at 30 percent except Muslim women where it is half as common.  Male sterilization is common amongst Buddhist men at 12 percent, but under 4 percent for other religions.  These statistics seem to indicate that attitudes toward family planning methods differ among the different religions practiced in India.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+religion <- cleaned_data %>% 
+  filter(Category == "Religion") %>% 
+  select(-c(Category, Number.of.women, Total.percent)) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  row_to_names(row_number = 1)
+
+religion$methods <- rownames(religion)
+religion <- melt(religion, id.vars=c("methods"))
+
+religion$value[which(religion$value == "<0.05")] <- "0.05"
+religion$value <- as.numeric(religion$value)
+```
+
+
+```{r fig.cap = "\\label{fig:religion}Use of contraceptive methods and religion", fig.height = 5, fig.width = 7, echo=FALSE, warning=FALSE, message=FALSE}
+religion %>% 
+  ggplot(aes(x = methods, y = value, group = variable, fill = variable, label = value)) + 
+  geom_bar(stat = "identity", position ="dodge", colour = "black") + 
+  facet_wrap(~ variable) +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle=90, hjust = 1, size = 7)) +
+  labs(x = "Contraceptive Methods", 
+       y = "Percent",
+       fill = "Religion")
+```
+
+Contraceptive prevalence varies based on how many living children a woman has as well.  95.8 percent of women that have never given birth do not use any family planning method and 80.7 percent of women with one child do not either.  Usage of contraceptive methods is more common in women who have at least two children.  53.9 percent of women with two children use family planning methods, so do 41.1 percent of women with three children and 47.6 percent of women with four or more children.  This indicates that there is a curvilinear relationship between the number of children a woman has and her usage of contraceptives.  The number of children a woman has had is not the only factor when it comes to her use of family planning methods, because the gender of the children plays a role here too.  For example, 46.1 percent of women who have had 2 children use any contraceptive methods.  This rate varies based on the gender of the children, however.  If a woman has 2 sons and no daughters, she is 55 percent likely to use contraceptives.  If she has 1 son and 1 daughter, that rate drops to 46.4 percent and if she has no sons and two daughters then the contraceptive prevalence rate is 31.5 percent.  It is evident that Indian people prefer to have a son and tend to keep trying for a boy if they do not get one.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+children <- cleaned_data %>% 
+  filter(Category == "Number of Children") %>% 
+  select(-c(Category, Number.of.women, Total.percent)) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  row_to_names(row_number = 1)
+
+children$methods <- rownames(children)
+children <- melt(children, id.vars=c("methods"))
+
+children$value[which(children$value == "<0.05")] <- "0.05"
+children$value <- as.numeric(children$value)
+```
+
+```{r fig.cap = "\\label{fig:children}Use of contraceptive methods and number of children", fig.height = 5, fig.width = 7, echo=FALSE, warning=FALSE, message=FALSE}
+children %>% 
+  ggplot(aes(x = methods, y = value, group = variable, fill = variable, label = value)) + 
+  geom_bar(stat = "identity", position ="dodge", colour = "black") + 
+  facet_wrap(~ variable) +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle=90, hjust = 1, size = 7)) +
+  labs(x = "Contraceptive Methods", 
+       y = "Percent",
+       fill = "Number of Children")
+```
+
+
+# Discussion
+
+In this paper, we examined the factors which may prompt women in India to use family planning methods.  We were interested in determining how living in urban areas affected the use of contraceptives compared to living in rural regions of the country.  We also investigated how the level of education women had received along with their religion and the number of living children they have affected the use of contraceptives.  After assessing many factors that contribute to using family planning methods, we were able to make a few conclusions. 
+
+Based on the survey, there is a 38 percent higher contraceptive prevalence among urban communities than rural ones.  The reason for this higher prevalence is because urban environments offer logistic advantages for contraceptive supply and more clinical facilities for methods, as well as a more active private sector, more mass media activity, and easier educational approaches(@citeRoss). Fertility rates are also lower in urban areas, and they correlate with the extent of contraceptive use.  Another reason that there is a lower contraceptive prevalence in rural areas is because many families in poverty, especially those who rely on agriculture have more children as a way of supporting the family’s livelihood (@citeRupnarain).
+
+Education is a very important factor that affects the use of contraceptives across the country.  Women with at least a high school education are 61 percent more likely to use contraceptives than illiterate women.  This could be because women’s education increases their labour participation and raises their salaries.  One of the indirect applications of education is to empower women with decision-making and counteract cultures and norms that are associated with low prevalence of contraceptive use and increased fertility rate (@citeAyoub).  Measures of the quality of education were not included in the DHS dataset and we are unable to determine how significant this is.
+ 
+All the world’s major religions endorse responsible parenthood, but when it comes to birth control methods that consensus often dissolves (@citeBritannica).  The Roman Catholic church forbids contraceptive use because it is a sin against nature and Islamic law states that children are gifts from Allah(@citeSchenker).  Neither Hinduism nor Buddhism prohibit contraceptive use.  These reasons may help explain why contraceptive prevalence is higher with Buddhists rather than Christians and Muslims.  It is important to note however that some of these differences could be minimized if the level of education was the same amongst all religious groups.
+
+The number of living children a woman has also contributes to her use of contraceptives.  Women who do not have children are 19 percent more likely to not use any family planning methods than women with one child, and 78 percent more likely than women with two children.  61 percent of women who use any family method are sterilized, so it would make sense that women who are not looking to have any more kids have had the surgery at a much higher rate than women who do not have children.  It is logical that women who do not want more children would use contraceptives at a higher rate than women who still want children.  The gender of children is also an important factor in the use of contraceptives.  Families prioritize births of sons which is why women with 2 sons and no daughters are 75 percent more likely to use contraceptives than women with two daughters and no sons.
+
+The next step for this report would be to conduct another survey across India to see how peoples use of contraceptives has changed since 1992-93.  New contraceptive options have been introduced since then and that may have changed the public’s attitude towards them.  In 1991, India liberalized its Soviet-style economy which resulted in a transformation that eventually pulled around 300 million people out of poverty (@citeBeniwal).  In this period, India also underwent massive urbanization, in which hundreds of millions of people moved to the city where they also received a higher level of education.  Due to urbanization and improved access to education since the 90’s, it is likely that attitudes towards contraceptives have changed and that they are more commonly used now.
+
+
+
+## Weaknesses and next steps
+
+A survey as large as this one was bound to encounter some problems. The most significant problems encountered by the NFHS were transportation, household identification and staff resignations.  In certain states, trouble reaching PSUs located in regions without approachable roads which may have resulted in a lack of rural interviews.  Identifying households to interview also proved to be a problem in villages that weren’t mapped correctly, since then field teams were forced to abandon the map and take the help of knowledgeable local people to trace the sample households.  Additionally, field staff who resigned in the middle of their fieldwork were not replaced to maintain the quality of data, however this may have impacted the performance of other field workers who worked in understaffed teams.
+
+When we look at Figure \@ref(fig:religion), we can see that the number of Christian, Sikh, Jain, and Buddhist women surveyed were very few compared to Hindu and Muslim women. Even though this is representative of the true population of India, it would likely not give us a large enough sample size to analyze and draw inferences about Christian, Sikh, Jain, or Buddhist women specifically. It would be useful to have a larger sample size if we wanted to discuss about use of contraceptive among women by religion in depth. 
+
+Self-report bias is a methodological problem that arises when researchers rely on asking people to describe their behaviours rather than measuring directly (@citeAPA).  People may not have given fully correct answers, perhaps because they wanted to make a good impression and talking about contraceptives is uncomfortable for many people.  Since everyone that participated in the survey was provided fixed responses, this may have encouraged some women to select responses that they did not fully agree with.
+
+
+\newpage
+
+\appendix
+
+# Appendix {-}
+
+Extract of the questions from @gebru2021datasheets
+
+
+**Motivation**
+
+1. *For what purpose was the dataset created? Was there a specific task in mind? Was there a specific gap that needed to be filled? Please provide a description.*
+    - The International Institute for Population Sciences, Bombay (IIPS) conducted this survey. They create annual reports to present their findings on the state of health in the country. This report covered topics on nuptiality, fertility, morbidity, mortality, family planning, maternal and child health, infant feeding and child nutrition, and knowledge on aids. 
+2. *Who created the dataset (for example, which team, research group) and on behalf of which entity (for example, company, institution, organization)?*
+    - The dataset was created by IIPS in India in 1992-1993.
+3. *Who funded the creation of the dataset? If there is an associated grant, please provide the name of the grantor and the grant name and number.*
+    - We took the dataset from the DHS website where the final report is published. No funding was needed on our part.
+4. *Any other comments?*
+    - No, no other comments.
+
+**Composition**
+
+1. *What do the instances that comprise the dataset represent (for example, documents, photos, people, countries)? Are there multiple types of instances (for example, movies, users, and ratings; people and interactions between them; nodes and edges)? Please provide a description.*
+	- The instances that comprise the dataset represent the contraceptive prevalences among different groups of women in India.  All of the instances have to do with people and their personal information.
+2. *How many instances are there in total (of each type, if appropriate)?*
+	- 39 instances.
+3. *Does the dataset contain all possible instances or is it a sample (not necessarily random) of instances from a larger set? If the dataset is a sample, then what is the larger set? Is the sample representative of the larger set (for example, geographic coverage)? If so, please describe how this representativeness was validated/verified. If it is not representative of the larger set, please describe why not (for example, to cover a more diverse range of instances, because instances were withheld or unavailable).*
+	- The dataset has information on the contraceptive prevalence of various groups of women in India and all of that information was important to our report, therefore the dataset contains all possible instances. 
+4. *What data does each instance consist of? "Raw" data (for example, unprocessed text or images) or features? In either case, please provide a description.*
+	- Each instance consists of the usages of family planning methods by women sorted by religion, residence, age or education history.
+5. *Is there a label or target associated with each instance? If so, please provide a description.*
+	- There is no target associated with each instance.
+6. *Is any information missing from individual instances? If so, please provide a description, explaining why this information is missing (for example, because it was unavailable). This does not include intentionally removed information, but might include, for example, redacted text.*
+	-  There is no information missing from individual instances. 
+7. *Are relationships between individual instances made explicit (for example, users' movie ratings, social network links)? If so, please describe how these relationships are made explicit.*
+	- Relationships between individual instances is made explicit by graphing.  The graphs highlight trends and differences between individual instances.
+8. *Are there recommended data splits (for example, training, development/validation, testing)? If so, please provide a description of these splits, explaining the rationale behind them.*
+	- The data splits are based upon religion, residence, age, and education history because these are factors that heavily impact the contraceptive prevalence of women in India which was the primary focus in this report.
+9. *Are there any errors, sources of noise, or redundancies in the dataset? If so, please provide a description.*
+	- There are no errors, sources of noise, or redundancies in the dataset.
+10. *Is the dataset self-contained, or does it link to or otherwise rely on external resources (for example, websites, tweets, other datasets)? If it links to or relies on external resources, a) are there guarantees that they will exist, and remain constant, over time; b) are there official archival versions of the complete dataset (that is, including the external resources as they existed at the time the dataset was created); c) are there any restrictions (for example, licenses, fees) associated with any of the external resources that might apply to a dataset consumer? Please provide descriptions of all external resources and any restrictions associated with them, as well as links or other access points, as appropriate.*
+	- This dataset is archived by the Ministry of Family and Health Welfare in India, so since it is a government institution, there are guarantees that it will exist over time.
+	- There are official archival versions of the complete dataset.
+	- There are no licenses or fees that would restrict someone's access to any of the external resources.
+11. *Does the dataset contain data that might be considered confidential (for example, data that is protected by legal privilege or by doctor-patient confidentiality, data that includes the content of individuals' non-public communications)? If so, please provide a description.*
+	- Since the data is anonymous, it is not considered confidential.
+12. *Does the dataset contain data that, if viewed directly, might be offensive, insulting, threatening, or might otherwise cause anxiety? If so, please describe why.*
+	- The data is not offensive, insulting, threatening, and does not cause anxiety.
+13. *Does the dataset identify any sub-populations (for example, by age, gender)? If so, please describe how these subpopulations are identified and provide a description of their respective distributions within the dataset.*
+	- This dataset does identify sub-populations such as people with different religions, education history, residence, and age.  Within the dataset, all sub-populations are covered equally.
+14. *Is it possible to identify individuals (that is, one or more natural persons), either directly or indirectly (that is, in combination with other data) from the dataset? If so, please describe how.*
+	- It is impossible to identify individuals directly or indirectly from the dataset because all of the information that was collected was anonymous.
+15. *Does the dataset contain data that might be considered sensitive in any way (for example, data that reveals race or ethnic origins, sexual orientations, religious beliefs, political opinions or union memberships, or locations; financial or health data; biometric or genetic data; forms of government identification, such as social security numbers; criminal history)? If so, please provide a description.*
+	- The dataset does not contain data that might be considered offensive in any way.
+16. *Any other comments?*
+	- No other comments.
+
+**Collection process**
+
+1. *How was the data associated with each instance acquired? Was the data directly observable (for example, raw text, movie ratings), reported by subjects (for example, survey responses), or indirectly inferred/derived from other data (for example, part-of-speech tags, model-based guesses for age or language)? If the data was reported by subjects or indirectly inferred/derived from other data, was the data validated/verified? If so, please describe how.*
+	- The data set is directly gathered from the Indian National Family Health Survey (1992-1993) handbook, reported by the International Institute for Population Sciences, Bombay (IIPS). The data set is completely based on Table 6.5: Current Use of Contraception of the handbook, which is on page 137. 
+2. *What mechanisms or procedures were used to collect the data (for example, hardware apparatuses or sensors, manual human curation, software programs, software APIs)? How were these mechanisms or procedures validated?*
+	- Scraping and parsing with R. 
+3. *If the dataset is a sample from a larger set, what was the sampling strategy (for example, deterministic, probabilistic with specific sampling probabilities)?*
+	- This data set is not a sample from a larger population. 
+4. *Who was involved in the data collection process (for example, students, crowdworkers, contractors) and how were they compensated (for example, how much were crowdworkers paid)?*
+	- The India Ministry of Health and Family Welfare (MOHFW) designated the International Institute for Population Sciences (IIPS), Bombay, as the nodal agency for providing coordination and technical guidance to the National Family Health Survey (NFHS). The data collection for the NFHS was undertaken by various Consulting Organizations (COs) in collaboration with the concerned Population Research Centres (PRCs) in each state. The East-West Center/Macro International provided technical assistance for all of the survey operations. Funding for the NFHS was provided by the United States Agency for International Development (USAID), New Delhi.
+5. *Over what timeframe was the data collected? Does this timeframe match the creation timeframe of the data associated with the instances (for example, recent crawl of old news articles)? If not, please describe the timeframe in which the data associated with the instances was created.*
+	- The data is collected from 1992 to 1993. It is associated with the time frame that instances were created.
+6. *Were any ethical review processes conducted (for example, by an institutional review board)? If so, please provide a description of these review processes, including the outcomes, as well as a link or other access point to any supporting documentation.*
+	- No.
+7. *Did you collect the data from the individuals in question directly, or obtain it via third parties or other sources (for example, websites)?*
+	- Data is collected from individuals through questionnaires and fixed responses.
+8. *Were the individuals in question notified about the data collection? If so, please describe (or show with screenshots or other information) how notice was provided, and provide a link or other access point to, or otherwise reproduce, the exact language of the notification itself.*
+	- Yes. The forewords of the handbook mentions that "in all, 89,777 ever-married women age 13-49 and 88,562 households were covered, using uniform questionnaires, sample designs and field procedures."
+9. *Did the individuals in question consent to the collection and use of their data? If so, please describe (or show with screenshots or other information) how consent was requested and provided, and provide a link or other access point to, or otherwise reproduce, the exact language to which the individuals consented.*
+	- No.
+10. *If consent was obtained, were the consenting individuals provided with a mechanism to revoke their consent in the future or for certain uses? If so, please provide a description, as well as a link or other access point to the mechanism (if appropriate).*
+	- Consent was not obtained.
+11. *Has an analysis of the potential impact of the dataset and its use on data subjects (for example, a data protection impact analysis) been conducted? If so, please provide a description of this analysis, including the outcomes, as well as a link or other access point to any supporting documentation.*
+	- Yes. The foreword of handbook mentions: "As a part the further analysis of the NFHS data, a series of subject reJX)rts is planned as a collaborative effort of IIPS, the East-West Center, the PRCs and MOHFW, covering various topics including the determinants of fertility, contraceptive use and infant and child mortality."
+12. *Any other comments?*
+	- No.
+
+**Preprocessing/cleaning/labeling**
+
+1. *Was any preprocessing/cleaning/labeling of the data done (for example, discretization or bucketing, tokenization, part-of-speech tagging, SIFT feature extraction, removal of instances, processing of missing values)? If so, please provide a description. If not, you may skip the remaining questions in this section.*
+	- The data is cleaned, and some labels are changed. 
+2. *Was the "raw" data saved in addition to the preprocessed/cleaned/labeled data (for example, to support unanticipated future uses)? If so, please provide a link or other access point to the "raw" data.*
+	- The “raw” data is in fact Table 6.5: Current Use of Contraception in the handbook. A pdf file of the handbook is saved under inputs/data. 
+3. *Is the software that was used to preprocess/clean/label the data available? If so, please provide a link or other access point.*
+	- R was usd.
+4. *Any other comments?*
+	- No.
+
+**Uses**
+
+1. *Has the dataset been used for any tasks already? If so, please provide a description.*
+	- No.
+2. *Is there a repository that links to any or all papers or systems that use the dataset? If so, please provide a link or other access point.*
+	- No.
+3. *What (other) tasks could the dataset be used for?*
+	- TBD
+4. *Is there anything about the composition of the dataset or the way it was collected and preprocessed/cleaned/labeled that might impact future uses? For example, is there anything that a dataset consumer might need to know to avoid uses that could result in unfair treatment of individuals or groups (for example, stereotyping, quality of service issues) or other risks or harms (for example, legal risks, financial harms)? If so, please provide a description. Is there anything a dataset consumer could do to mitigate these risks or harms?*
+	- The data set is only used for STA304 paper 4, which is this task. 
+5. *Are there tasks for which the dataset should not be used? If so, please provide a description.*
+	- No.
+6. *Any other comments?*
+	- No other comments.
+
+**Distribution**
+
+1. *Will the dataset be distributed to third parties outside of the entity (for example, company, institution, organization) on behalf of which the dataset was created? If so, please provide a description.*
+	- No.
+2. *How will the dataset be distributed (for example, tarball on website, API, GitHub)? Does the dataset have a digital object identifier (DOI)?*
+	- The dataset will not be distributed.
+3. *When will the dataset be distributed?*
+	- The dataset will not be distributed.
+4. *Will the dataset be distributed under a copyright or other intellectual property (IP) license, and/or under applicable terms of use (ToU)? If so, please describe this license and/ or ToU, and provide a link or other access point to, or otherwise reproduce, any relevant licensing terms or ToU, as well as any fees associated with these restrictions.*
+	- No.
+5. *Have any third parties imposed IP-based or other restrictions on the data associated with the instances? If so, please describe these restrictions, and provide a link or other access point to, or otherwise reproduce, any relevant licensing terms, as well as any fees associated with these restrictions.*
+	- No.
+6. *Do any export controls or other regulatory restrictions apply to the dataset or to individual instances? If so, please describe these restrictions, and provide a link or other access point to, or otherwise reproduce, any supporting documentation.*
+	- No.
+7. *Any other comments?*
+	- No.
+
+**Maintenance**
+
+1. *Who will be supporting/hosting/maintaining the dataset?*
+	- The dataset will not be maintained.
+2. *How can the owner/curator/manager of the dataset be contacted (for example, email address)?*
+	- N/A
+3. *Is there an erratum? If so, please provide a link or other access point.*
+	- No.
+4. *Will the dataset be updated (for example, to correct labeling errors, add new instances, delete instances)? If so, please describe how often, by whom, and how updates will be communicated to dataset consumers (for example, mailing list, GitHub)?*
+	- The dataset will not be updated.
+5. *If the dataset relates to people, are there applicable limits on the retention of the data associated with the instances (for example, were the individuals in question told that their data would be retained for a fixed period of time and then deleted)? If so, please describe these limits and explain how they will be enforced.*
+	- N/A
+6. *Will older versions of the dataset continue to be supported/hosted/maintained? If so, please describe how. If not, please describe how its obsolescence will be communicated to dataset consumers.*
+	- N/A
+7. *If others want to extend/augment/build on/contribute to the dataset, is there a mechanism for them to do so? If so, please provide a description. Will these contributions be validated/verified? If so, please describe how. If not, why not? Is there a process for communicating/distributing these contributions to dataset consumers? If so, please provide a description.*
+	- N/A
+8. *Any other comments?*
+	- No.
+
+
+# References
+
+
